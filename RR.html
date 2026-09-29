@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ResponseRecorder Pro</title>
+<style>
+:root{--blue:#1f6feb;--dark:#172033;--bg:#f4f7fb;--card:#fff;--muted:#667085;--line:#dfe5ec;--ok:#16834b;--danger:#c62828}
+*{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:#172033}
+header{background:linear-gradient(135deg,#172033,#1f6feb);color:#fff;padding:26px 22px}
+header h1{margin:0;font-size:28px} header p{margin:6px 0 0;opacity:.88}
+main{max-width:1100px;margin:22px auto;padding:0 16px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px #1720330b}
+h2{font-size:19px;margin:0 0 10px}.muted{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.grid{grid-template-columns:1fr}}
+label{font-weight:600;display:block;margin:9px 0 5px}input[type=text],input[type=date],input[type=file],select{width:100%;padding:10px;border:1px solid #cfd7e3;border-radius:8px;background:#fff}
+button{border:0;border-radius:8px;padding:10px 15px;background:var(--blue);color:#fff;font-weight:600;cursor:pointer;margin:5px 5px 0 0}
+button.secondary{background:#667085} button.danger{background:var(--danger)} button:disabled{opacity:.5;cursor:not-allowed}
+.req{border:1px solid var(--line);border-radius:11px;padding:13px;margin:10px 0;background:#fbfcfe}.reqrow{display:grid;grid-template-columns:80px 1fr;gap:12px;align-items:center}
+.thumb{width:78px;height:60px;object-fit:contain;border:1px solid var(--line);border-radius:7px;background:#fff}.thumb.empty{display:flex;align-items:center;justify-content:center;font-size:11px;color:#98a2b3}
+.badge{display:inline-block;background:#eef4ff;color:#185abd;padding:3px 8px;border-radius:20px;font-size:12px}
+.status{margin-top:10px;font-weight:600}.ok{color:var(--ok)}.warn{color:#9a6700}.error{color:var(--danger)}
+.mapping{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px;align-items:end;border-top:1px solid var(--line);padding:12px 0}.mapping:first-child{border-top:0}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}th{background:#f8fafc}
+.hidden{display:none}.actions{margin-top:8px}.note{background:#fff8e6;border:1px solid #f3d38a;padding:10px;border-radius:8px;font-size:13px}
+</style>
+
+<style id="response-recorder-v13-style">
+/* Keep the first two sections compact without changing their functionality. */
+#section1, #section2 {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  min-height: 0 !important;
+}
+#section1 > *, #section2 > * {
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
+}
+#section1 h2, #section2 h2 {
+  margin: 0 0 6px 0 !important;
+}
+#section1 p, #section2 p {
+  margin: 4px 0 !important;
+}
+#section1 button, #section2 button {
+  padding: 7px 12px !important;
+}
+#section1 input, #section2 input {
+  padding: 7px 9px !important;
+  height: 36px !important;
+}
+</style>
+
+
+<style id="response-recorder-v15-style">
+/* Correct compact sizing for the actual requirement cards (.req). */
+.req{
+  padding:7px 9px !important;
+  margin:5px 0 !important;
+  min-height:0 !important;
+  position:relative !important;
+}
+.reqrow{
+  grid-template-columns:60px 1fr !important;
+  gap:8px !important;
+  align-items:center !important;
+}
+.thumb{
+  width:55px !important;
+  height:42px !important;
+  border-radius:5px !important;
+}
+.req label{
+  margin:2px 0 3px !important;
+  font-size:14px !important;
+}
+.req .grid{
+  gap:8px !important;
+}
+.req input[type=text],
+.req input[type=file]{
+  height:30px !important;
+  padding:4px 7px !important;
+  font-size:13px !important;
+}
+.req .actions{
+  margin-top:4px !important;
+}
+.req .actions button{
+  padding:6px 10px !important;
+  margin-top:2px !important;
+  font-size:12px !important;
+}
+
+/* Compact the daily CSV picker using the actual section structure. */
+#section2 input[type=file]{
+  width:520px !important;
+  max-width:65% !important;
+  height:32px !important;
+  padding:3px !important;
+}
+#section2{
+  padding-top:8px !important;
+  padding-bottom:8px !important;
+}
+</style>
+
+
+
+
+</head>
+<body>
+<header>
+  <h1>ResponseRecorder Pro</h1>
+  <p>Contractor responses → clean, requirement-wise Word report</p>
+</header>
+<main>
+
+<section class="card">
+<h2 id="section1">1. One-time Requirement Setup</h2>
+<p class="muted">Add all requirement photos once. Their filenames are used for automatic CSV matching. They are saved in this browser on this PC.</p>
+<div id="reqs"></div>
+<button onclick="addRequirement()">＋ Add Requirement</button>
+<button class="secondary" onclick="clearAll()">Clear saved setup</button>
+</section>
+
+<section class="card">
+<h2 id="section2">2. Daily CSV Files</h2>
+<p class="muted">Select all CSV files at the same time. The app automatically matches each CSV to the requirement photo using the filename (for example, EkamRcc35.csv ↔ EkamRcc35.png). No manual mapping is required.</p>
+<input id="files" type="file" accept=".csv,.txt" multiple onchange="loadFiles()">
+<div id="fileMap"></div>
+</section>
+
+<section class="card">
+<h2>3. Date Range</h2>
+<div class="grid">
+<div><label>From date</label><input id="from" type="date"></div>
+<div><label>To date</label><input id="to" type="date"></div>
+</div>
+</section>
+
+<section class="card">
+<h2>4. Generate Word</h2>
+<div class="note">The report will contain only <b>Contractor Name</b> and <b>Phone Number(s)</b>. If a contractor has two different phone numbers, both are kept. Repeated phone numbers are removed.</div>
+<div class="actions">
+<button id="generate" onclick="generateWord()" disabled>Generate Word File</button>
+<button class="secondary" onclick="preview()">Preview Data</button>
+</div>
+<div id="status" class="status"></div>
+<div id="preview"></div>
+</section>
+</main>
+
+<script>
+const DB='ResponseRecorderProDB', STORE='data';
+let requirements=[], fileRows=[], mappings={};
+
+// Automatic CSV ↔ requirement-photo matching.
+// Examples that MUST match automatically:
+//   1AAA085FED87.png <-> Requirement_Remarks_1AAA085FED87 (1).csv
+//   0096045F977C.png <-> Requirement_Remarks_0096045F977C (2).csv
+// The CSV prefix and Windows duplicate suffixes are ignored.
+function fileBaseName(name){
+  return String(name||'').replace(/\.[^.]+$/,'');
+}
+function normalizeMatchKey(name){
+  let s=fileBaseName(name).trim().toLowerCase();
+  // Remove Windows duplicate-copy suffixes such as (1), (2), (15).
+  s=s.replace(/\s*\(\d+\)\s*$/,'');
+  // Remove the standard CSV prefix used by the exported files.
+  s=s.replace(/^requirement[_\s-]*remarks[_\s-]*/,'');
+  // Ignore separators/case so names such as Ekam_Rcc-35 and EkamRcc35 match.
+  return s.replace(/[^a-z0-9]/g,'');
+}
+function displayRequirementName(r){
+  return r.name && r.name.trim() ? r.name.trim() : fileBaseName(r.imageName||'') || `Requirement ${r.order}`;
+}
+
+function dbOpen(){return new Promise((resolve,reject)=>{let r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+async function dbGet(k){let d=await dbOpen();return new Promise((s,j)=>{let r=d.transaction(STORE,'readonly').objectStore(STORE).get(k);r.onsuccess=()=>s(r.result);r.onerror=()=>j(r.error)})}
+async function dbPut(k,v){let d=await dbOpen();return new Promise((s,j)=>{let r=d.transaction(STORE,'readwrite').objectStore(STORE).put(v,k);r.onsuccess=()=>s();r.onerror=()=>j(r.error)})}
+
+function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function normPhone(p){return String(p||'').replace(/\D/g,'').slice(-10)}
+function unique(a){return [...new Set(a.filter(Boolean))]}
+
+function parseCSV(text){
+  let rows=[], row=[], field='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if(c==='"'){if(q&&n==='"'){field+='"';i++}else q=!q}
+    else if(c===','&&!q){row.push(field);field=''}
+    else if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(field);rows.push(row);row=[];field=''}
+    else field+=c;
+  }
+  if(field!==''||row.length){row.push(field);rows.push(row)}
+  if(!rows.length)return [];
+  const headers=rows.shift().map(x=>x.trim().replace(/^\uFEFF/,''));
+  return rows.filter(r=>r.some(x=>x.trim()!=='')).map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]||'').trim()])));
+}
+
+function extractContractor(s){
+  s=String(s||'');
+  const nums=unique((s.match(/\d{10}/g)||[]).map(normPhone));
+  let name=s.replace(/^Contractor:\s*/i,'');
+  name=name.replace(/\d{10}/g,' ');
+  name=name.replace(/\(\s*-\s*\)/g,' ');
+  name=name.replace(/\s{2,}/g,' ').replace(/[,\s]+$/,'').trim();
+  return {name,phones:nums};
+}
+
+async function init(){
+  requirements=await dbGet('requirements')||[];
+  mappings=await dbGet('mappings')||{};
+  renderReqs();
+  const t=new Date().toISOString().slice(0,10); document.getElementById('from').value=t;document.getElementById('to').value=t;
+}
+function addRequirement(){
+  requirements.push({id:crypto.randomUUID(),order:requirements.length+1,name:'',image:'',imageName:'',matchKey:''});
+  saveReqs();
+}
+async function saveReqs(){await dbPut('requirements',requirements);renderReqs();renderFileMap()}
+function removeReq(id){requirements=requirements.filter(x=>x.id!==id);requirements.forEach((x,i)=>x.order=i+1);Object.keys(mappings).forEach(k=>{if(mappings[k]===id)delete mappings[k]});dbPut('requirements',requirements);dbPut('mappings',mappings);renderReqs();renderFileMap()}
+async function imageFor(i,file){
+ if(!file)return;
+ let r=new FileReader();
+ r.onload=async()=>{
+   requirements[i].image=r.result;
+   requirements[i].imageName=file.name;
+   requirements[i].matchKey=normalizeMatchKey(file.name);
+   if(!requirements[i].name || !requirements[i].name.trim()) requirements[i].name=fileBaseName(file.name);
+   await dbPut('requirements',requirements);
+   autoMapFiles();
+   renderReqs();
+   renderFileMap();
+   updateGenerate();
+ };
+ r.readAsDataURL(file)
+}
+function renderReqs(){
+ const el=document.getElementById('reqs');
+ if(!requirements.length){el.innerHTML='<p class="muted">No requirements added. Click “Add Requirement” and upload your screenshots.</p>';return}
+ el.innerHTML=requirements.map((r,i)=>`
+ <div class="req"><div class="reqrow">
+ <div>${r.image?`<img class="thumb" src="${r.image}">`:`<div class="thumb empty">No photo</div>`}</div>
+ <div>
+ <label>Order ${r.order}</label>
+ <div class="grid">
+ <div><input type="text" value="${esc(r.name)}" placeholder="Requirement name (optional)" oninput="requirements[${i}].name=this.value;dbPut('requirements',requirements)"></div>
+ <div><input type="file" accept="image/*" onchange="imageFor(${i},this.files[0])"></div>
+ </div>
+ <div class="muted">${r.imageName?`Auto-match name: <b>${esc(r.imageName)}</b>`:'Upload a requirement image to enable automatic matching.'}</div>
+ <div class="actions"><button class="danger" onclick="removeReq('${r.id}')">Remove</button></div>
+ </div></div></div>`).join('')
+}
+
+async function loadFiles(){
+ const fs=[...document.getElementById('files').files];
+ fileRows=[];
+ mappings={};
+ for(const f of fs){
+   const text=await f.text(), data=parseCSV(text);
+   const parsed=data.map((r,idx)=>{
+     let x=extractContractor(r.RequirementUpdateRemark);
+     return {file:f.name,row:idx+2,name:x.name,phones:x.phones,time:r.RequirementUpdatedTime||'',type:r.Type||''};
+   }).filter(x=>x.name||x.phones.length);
+   fileRows.push(...parsed);
+ }
+ autoMapFiles();
+ renderFileMap();
+ updateGenerate();
+}
+
+function autoMapFiles(){
+ const files=unique(fileRows.map(x=>x.file));
+ const result={};
+ const ambiguous=[];
+ for(const fn of files){
+   const key=normalizeMatchKey(fn);
+   const matches=requirements.filter(r=>normalizeMatchKey(r.imageName||r.matchKey||'')===key);
+   if(matches.length===1) result[fn]=matches[0].id;
+   else if(matches.length>1) ambiguous.push(fn);
+ }
+ mappings=result;
+ dbPut('mappings',mappings);
+ return ambiguous;
+}
+
+function renderFileMap(){
+ const files=unique(fileRows.map(x=>x.file));
+ const el=document.getElementById('fileMap');
+ if(!files.length){el.innerHTML='';return}
+ const ambiguous=files.filter(fn=>requirements.filter(r=>normalizeMatchKey(r.imageName||r.matchKey||'')===normalizeMatchKey(fn)).length>1);
+ const unmatched=files.filter(fn=>!mappings[fn]);
+ let html='<p class="muted">Automatic matching is active: CSV filename and requirement-photo filename are compared after removing the extension, spaces, hyphens, underscores and letter case.</p>';
+ html+=files.map(fn=>{
+   const q=requirements.find(r=>r.id===mappings[fn]);
+   const count=fileRows.filter(x=>x.file===fn).length;
+   if(q) return `<div class="mapping"><div><b>${esc(fn)}</b><div class="muted">${count} response rows</div></div><div><b>Matched automatically:</b> ${esc(displayRequirementName(q))}</div><div><span class="badge">✓ Auto-matched</span></div></div>`;
+   const isAmb=ambiguous.includes(fn);
+   return `<div class="mapping"><div><b>${esc(fn)}</b><div class="muted">${count} response rows</div></div><div class="warn">${isAmb?'More than one requirement has this filename key. Rename the files so the match is unique.':'No requirement photo has the same filename key.'}</div><div><span class="warn">${isAmb?'⚠ Ambiguous':'⚠ Not matched'}</span></div></div>`;
+ }).join('');
+ if(unmatched.length) html+='<p class="muted">Only uniquely matched files will be included in the Word report. No manual mapping is used.</p>';
+ el.innerHTML=html;
+}
+
+function dateValue(v){
+ const s=String(v??'').trim();
+ let m=s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+ if(m){
+   return new Date(
+     Number(m[3]), Number(m[2])-1, Number(m[1]),
+     Number(m[4]||0), Number(m[5]||0), Number(m[6]||0)
+   ).getTime();
+ }
+ m=s.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+ if(m){
+   return new Date(
+     Number(m[1]), Number(m[2])-1, Number(m[3]),
+     Number(m[4]||0), Number(m[5]||0), Number(m[6]||0)
+   ).getTime();
+ }
+ const d=new Date(s);
+ return Number.isNaN(d.getTime()) ? Number.POSITIVE_INFINITY : d.getTime();
+}
+function dateOnlyValue(v){
+ const t=dateValue(v);
+ if(!Number.isFinite(t)) return '';
+ const d=new Date(t);
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function selectedRows(){
+ const a=document.getElementById('from').value;
+ const b=document.getElementById('to').value;
+ const all=fileRows.filter(r=>{
+   const d=dateOnlyValue(r.time);
+   return d && (!a||d>=a) && (!b||d<=b);
+ });
+ all.sort((x,y)=>dateValue(x.time)-dateValue(y.time));
+ // Remove duplicate phone numbers only within the same requirement and same calendar date.
+ // The same contractor may legitimately respond to another requirement or on another date.
+ const seenByGroup=new Map(), out=[];
+ for(const r of all){
+   const requirementId=mappings[r.file]||'';
+   const dateKey=dateOnlyValue(r.time)||'unknown';
+   const groupKey=requirementId+'|'+dateKey;
+   if(!seenByGroup.has(groupKey)) seenByGroup.set(groupKey,new Set());
+   const seen=seenByGroup.get(groupKey);
+   const phones=r.phones.filter(p=>!seen.has(p));
+   phones.forEach(p=>seen.add(p));
+   if(phones.length) out.push({...r,phones});
+ }
+ return out;
+}
+
+function updateGenerate(){
+ const files=unique(fileRows.map(x=>x.file));
+ const allMapped=files.length>0&&files.every(f=>mappings[f]&&requirements.some(r=>r.id===mappings[f]));
+ document.getElementById('generate').disabled=!allMapped;
+}
+function preview(){
+ const rows=selectedRows(), el=document.getElementById('preview');
+ if(!rows.length){el.innerHTML='<p class="muted">No matching responses for the selected dates.</p>';return}
+ el.innerHTML='<table><tr><th>Requirement</th><th>Contractor Name</th><th>Phone Number(s)</th><th>Date/Time</th></tr>'+
+ rows.map(r=>{const q=requirements.find(x=>x.id===mappings[r.file]);return `<tr><td>${q?esc(q.order+') '+displayRequirementName(q)):'—'}</td><td>${esc(r.name)}</td><td>${esc(r.phones.join(', '))}</td><td>${esc(r.time)}</td></tr>`}).join('')+'</table>';
+}
+
+function groupRows(){
+ const out={};
+ for(const r of selectedRows()){
+   const id=mappings[r.file];
+   if(!id)continue;
+   (out[id]??=[]).push(r);
+ }
+ return out;
+}
+
+function formatReportDate(v){
+ const t=dateValue(v);
+ if(!Number.isFinite(t)) return String(v||'');
+ const d=new Date(t);
+ return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function rowsByDate(rows){
+ const groups={};
+ for(const r of rows){
+   const key=dateOnlyValue(r.time)||'unknown';
+   (groups[key]??=[]).push(r);
+ }
+ return Object.entries(groups).sort((a,b)=>{
+   if(a[0]==='unknown')return 1;
+   if(b[0]==='unknown')return -1;
+   return a[0].localeCompare(b[0]);
+ });
+}
+
+function wordHtml(){
+ const groups=groupRows();
+ let h=`<html><head><meta charset="utf-8"><style>
+ @page{margin:0.65in} body{font-family:Arial,sans-serif;font-size:11pt;color:#000}
+ .section{page-break-after:always}.section:last-child{page-break-after:auto}
+ .head{font-weight:bold;font-size:14pt;margin:0 0 8pt}
+ .photo{text-align:left;margin:6pt 0 12pt}.photo img{max-width:6.4in;max-height:4.3in;object-fit:contain}
+ .intro{font-style:italic;margin:6pt 0 12pt}.date{font-weight:bold;margin:10pt 0 5pt}.item{margin:3pt 0 3pt 18pt}
+ </style></head><body>`;
+ const ordered=requirements.filter(r=>groups[r.id]);
+ for(const q of ordered){
+   h+=`<div class="section"><div class="head">${q.order}) ${esc(displayRequirementName(q))}</div>`;
+   if(q.image)h+=`<div class="photo"><img src="${q.image}"></div>`;
+   h+=`<div class="intro">Following is a New Response to Your Requirement:</div>`;
+   for(const [dateKey, rows] of rowsByDate(groups[q.id])){
+     h+=`<div class="date">${dateKey==='unknown'?'Date not available':formatReportDate(rows[0].time)}</div>`;
+     rows.forEach((r,i)=>{h+=`<div class="item">${i+1}. ${esc(r.name)} ${esc(r.phones.join(', '))}</div>`});
+   }
+   h+='</div>';
+ }
+ return h+'</body></html>';
+}
+
+function rtfEscape(s){
+  let out='';
+  for(const ch of String(s??'')){
+    const n=ch.charCodeAt(0);
+    if(ch==='\\') out+='\\\\';
+    else if(ch==='{') out+='\\{';
+    else if(ch==='}') out+='\\}';
+    else if(ch==='\r') {}
+    else if(ch==='\n') out+='\\line ';
+    else if(n>=32 && n<=126) out+=ch;
+    else {
+      const signed=n>32767 ? n-65536 : n;
+      out+=`\\u${signed}?`;
+    }
+  }
+  return out;
+}
+function dataUrlBytes(dataUrl){
+  const b64=String(dataUrl).split(',')[1]||'';
+  const bin=atob(b64);
+  const out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
+  return out;
+}
+function bytesHex(bytes){
+  let s='';
+  for(let i=0;i<bytes.length;i++)s+=bytes[i].toString(16).padStart(2,'0');
+  return s;
+}
+function imageToPng(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const im=new Image();
+    im.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=im.naturalWidth;c.height=im.naturalHeight;
+      const ctx=c.getContext('2d');
+      ctx.drawImage(im,0,0);
+      resolve({data:c.toDataURL('image/png'),w:im.naturalWidth,h:im.naturalHeight});
+    };
+    im.onerror=()=>reject(new Error('Requirement image could not be read.'));
+    im.src=dataUrl;
+  });
+}
+function rtfPara(text,bold=false,size=22){
+  return `{\\pard\\sa100\\f0\\fs${size}${bold?'\\b':''} ${rtfEscape(text)}${bold?'\\b0':''}\\par}\n`;
+}
+function rtfPicture(bytes,w,h){
+  // Word RTF requires image bytes inside a \pict destination.
+  let cx=9000, cy=Math.round(cx*(h/w));
+  const maxCy=6200;
+  if(cy>maxCy){cy=maxCy;cx=Math.round(cy*(w/h));}
+  return `{\\pard\\qc\\sa120\\fs2\\par{\\pict\\pngblip\\picw${w}\\pich${h}\\picwgoal${cx}\\pichgoal${cy}\n${bytesHex(bytes)}\\par}}\\par\n`;
+}
+async function generateWord(){
+ const rows=selectedRows();
+ if(!rows.length){
+   alert('No responses found in the selected date range.');
+   return;
+ }
+ const files=unique(fileRows.map(x=>x.file));
+ const missing=files.filter(f=>!mappings[f]);
+ if(missing.length){
+   alert('Automatic matching could not find a unique requirement photo for: '+missing.join(', ')+'\n\nMake sure the CSV filename and requirement image filename match.');
+   return;
+ }
+ try{
+   const groups=groupRows();
+   let rtf='{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Arial;}}'
+     +'\\viewkind4\\uc1\\paperw12240\\paperh15840'
+     +'\\margl720\\margr720\\margt720\\margb720\\n';
+   const ordered=requirements.filter(q=>groups[q.id]);
+   for(let qi=0;qi<ordered.length;qi++){
+     const q=ordered[qi];
+     const title=`${q.order}) ${displayRequirementName(q)}`;
+     rtf+=rtfPara(title,true,28);
+     if(q.image){
+       const im=await imageToPng(q.image);
+       rtf+=rtfPicture(dataUrlBytes(im.data),im.w,im.h);
+     }
+     rtf+=rtfPara('Following is a New Response to Your Requirement:',false,22);
+     for(const [dateKey, dateRows] of rowsByDate(groups[q.id])){
+       const dateText=dateKey==='unknown'?'Date not available':formatReportDate(dateRows[0].time);
+       rtf+=rtfPara(dateText,true,22);
+       dateRows.forEach((r,i)=>{
+         rtf+=rtfPara(`${i+1}. ${r.name} ${r.phones.join(', ')}`,false,22);
+       });
+     }
+     if(qi<ordered.length-1)rtf+='\\page\n';
+   }
+   rtf+='}';
+   const blob=new Blob([rtf],{type:'application/rtf'});
+   const a=document.createElement('a');
+   a.href=URL.createObjectURL(blob);
+   const from=document.getElementById('from').value||'from';
+   const to=document.getElementById('to').value||'to';
+   a.download=`ResponseRecorder_${from}_to_${to}.rtf`;
+   document.body.appendChild(a);
+   a.click();
+   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000);
+   document.getElementById('status').innerHTML='<span class="ok">Word file generated successfully: automatically matched and arranged date-wise.</span>';
+ }catch(e){
+   console.error(e);
+   alert('Word generation failed: '+(e.message||e));
+   document.getElementById('status').innerHTML='<span class="error">Word generation failed.</span>';
+ }
+}
+
+async function clearAll(){if(!confirm('Clear all saved requirements and mappings?'))return;requirements=[];mappings={};await dbPut('requirements',requirements);await dbPut('mappings',mappings);renderReqs();renderFileMap();updateGenerate()}
+init();
+</script>
+</body>
+</html>
