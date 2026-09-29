@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>ResponseRecorder Pro</title>
+<script src="https://accounts.google.com/gsi/client"></script>
 <style>
 :root{--blue:#1f6feb;--dark:#172033;--bg:#f4f7fb;--card:#fff;--muted:#667085;--line:#dfe5ec;--ok:#16834b;--danger:#c62828}
 *{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:#172033}
@@ -116,9 +117,18 @@ table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:8px;bord
 <main>
 
 <section class="card">
+<h2>Google Drive Connection</h2>
+<p class="muted">Connect the ResponseRecorder Google account to load requirement photos directly from the Google Drive <b>photo</b> folder. Your CSV and report logic remains unchanged.</p>
+<button id="driveConnect" onclick="connectGoogleDrive()">Connect Google Drive</button>
+<button id="driveLoad" class="secondary" onclick="loadDriveRequirements()" disabled>Load Requirement Photos</button>
+<div id="driveStatus" class="status"></div>
+</section>
+
+<section class="card">
 <h2 id="section1">1. One-time Requirement Setup</h2>
-<p class="muted">Add all requirement photos once. Their filenames are used for automatic CSV matching. They are saved in this browser on this PC.</p>
+<p class="muted">Requirement photos can be loaded automatically from Google Drive. Their filenames are used for automatic CSV matching.</p>
 <div id="reqs"></div>
+<p class="muted">For the online version, use <b>Load Requirement Photos</b> above. Manual image upload remains available as a fallback.</p>
 <button onclick="addRequirement()">＋ Add Requirement</button>
 <button class="secondary" onclick="clearAll()">Clear saved setup</button>
 </section>
@@ -153,6 +163,122 @@ table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:8px;bord
 <script>
 const DB='ResponseRecorderProDB', STORE='data';
 let requirements=[], fileRows=[], mappings={};
+const GOOGLE_CLIENT_ID='803345606735-hsihnlan8jfl78s5o35kh2rtvggbkj14.apps.googleusercontent.com';
+const DRIVE_FOLDER_ID='1rDMAWSFSLVoBNkdUSC36ym9RIXQ-rFcW';
+const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.readonly';
+let googleTokenClient=null;
+let googleAccessToken='';
+
+function setDriveStatus(msg, cls=''){
+  const el=document.getElementById('driveStatus');
+  if(el) el.innerHTML=cls?`<span class="${cls}">${msg}</span>`:msg;
+}
+
+function initGoogleAuth(){
+  if(!window.google || !google.accounts || !google.accounts.oauth2) return false;
+  googleTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GOOGLE_CLIENT_ID,
+    scope:DRIVE_SCOPE,
+    callback:(resp)=>{
+      if(resp.error){
+        googleAccessToken='';
+        setDriveStatus('Google Drive authorization was not completed.','error');
+        return;
+      }
+      googleAccessToken=resp.access_token;
+      document.getElementById('driveLoad').disabled=false;
+      document.getElementById('driveConnect').textContent='Google Drive Connected';
+      setDriveStatus('Google Drive connected successfully.','ok');
+      loadDriveRequirements();
+    }
+  });
+  return true;
+}
+
+function connectGoogleDrive(){
+  if(!googleTokenClient && !initGoogleAuth()){
+    setDriveStatus('Google authentication library is still loading. Please wait a few seconds and try again.','error');
+    return;
+  }
+  googleTokenClient.requestAccessToken({prompt:googleAccessToken?'':'consent'});
+}
+
+async function driveFetch(url, options={}){
+  const headers=new Headers(options.headers||{});
+  headers.set('Authorization','Bearer '+googleAccessToken);
+  const res=await fetch(url,{...options,headers});
+  if(!res.ok){
+    const txt=await res.text().catch(()=> '');
+    throw new Error(`Google Drive request failed (${res.status}) ${txt.slice(0,180)}`);
+  }
+  return res;
+}
+
+async function loadDriveRequirements(){
+  if(!googleAccessToken){
+    connectGoogleDrive();
+    return;
+  }
+  const btn=document.getElementById('driveLoad');
+  btn.disabled=true;
+  setDriveStatus('Loading requirement photos from Google Drive...');
+  try{
+    const q=encodeURIComponent(`'${DRIVE_FOLDER_ID}' in parents and trashed=false`);
+    const url=`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&orderBy=name&fields=files(id,name,mimeType,size)`;
+    const res=await driveFetch(url);
+    const data=await res.json();
+    const imageFiles=(data.files||[]).filter(f=>
+      /^image\/(png|jpe?g|webp|gif)$/i.test(f.mimeType||'') ||
+      /\.(png|jpe?g|webp|gif)$/i.test(f.name||'')
+    );
+    if(!imageFiles.length){
+      throw new Error('No image files were found in the configured Google Drive photo folder.');
+    }
+
+    const oldByKey=new Map(requirements.map(r=>[r.matchKey||normalizeMatchKey(r.imageName||''),r]));
+    const loaded=[];
+    for(let i=0;i<imageFiles.length;i++){
+      const f=imageFiles[i];
+      setDriveStatus(`Loading requirement photo ${i+1} of ${imageFiles.length}: ${esc(f.name)}`);
+      const imgRes=await driveFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(f.id)}?alt=media`);
+      const blob=await imgRes.blob();
+      const dataUrl=await blobToDataUrl(blob);
+      const key=normalizeMatchKey(f.name);
+      const old=oldByKey.get(key);
+      loaded.push({
+        id:old?.id||crypto.randomUUID(),
+        order:i+1,
+        name:old?.name||fileBaseName(f.name),
+        image:dataUrl,
+        imageName:f.name,
+        matchKey:key,
+        driveFileId:f.id
+      });
+    }
+
+    requirements=loaded;
+    await dbPut('requirements',requirements);
+    autoMapFiles();
+    renderReqs();
+    renderFileMap();
+    updateGenerate();
+    setDriveStatus(`Loaded ${loaded.length} requirement photo(s) from Google Drive. Automatic CSV matching is ready.`,'ok');
+  }catch(e){
+    console.error(e);
+    setDriveStatus('Google Drive loading failed: '+(e.message||e),'error');
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.onerror=()=>reject(r.error||new Error('Could not read image.'));
+    r.readAsDataURL(blob);
+  });
+}
 
 // Automatic CSV ↔ requirement-photo matching.
 // Examples that MUST match automatically:
@@ -209,6 +335,8 @@ function extractContractor(s){
 }
 
 async function init(){
+  // Google Identity Services may load just after the page script.
+  setTimeout(()=>initGoogleAuth(),500);
   requirements=await dbGet('requirements')||[];
   mappings=await dbGet('mappings')||{};
   renderReqs();
