@@ -226,7 +226,9 @@ async function loadDriveRequirements(){
     const q=encodeURIComponent(`'${DRIVE_FOLDER_ID}' in parents and trashed=false`);
 const url=`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=100&orderBy=name&spaces=drive&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,mimeType,size,parents)`;
     const res=await driveFetch(url);
+    
     const data=await res.json();
+console.log('GOOGLE DRIVE FILES:', data.files);
     const imageFiles=(data.files||[]).filter(f=>
       /^image\/(png|jpe?g|webp|gif)$/i.test(f.mimeType||'') ||
       /\.(png|jpe?g|webp|gif)$/i.test(f.name||'')
